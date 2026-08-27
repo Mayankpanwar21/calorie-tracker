@@ -1,5 +1,5 @@
-const CACHE='calorie-tracker-v9';
-const ASSETS=['./','./index.html','./app.js','./charts.js','./manifest.json','./icon.svg'];
+const CACHE='calorie-tracker-v10';
+const ASSETS=['./','./index.html','./style.css','./app.js','./charts.js','./manifest.json','./icon.svg'];
 self.addEventListener('install',event=>{self.skipWaiting();event.waitUntil(caches.open(CACHE).then(async cache=>{for(const asset of ASSETS){try{const response=await fetch(asset,{cache:'no-store'});if(response.ok)await cache.put(asset,response)}catch(e){}}}))});
 self.addEventListener('activate',event=>event.waitUntil(self.clients.claim().then(()=>caches.keys()).then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))))));
 self.addEventListener('fetch',event=>{if(event.request.method!=='GET')return;if(event.request.mode==='navigate'){event.respondWith(fetch(event.request,{cache:'no-store'}).then(response=>{const copy=response.clone();caches.open(CACHE).then(c=>c.put('./index.html',copy));return response}).catch(()=>caches.match('./index.html')));return}event.respondWith(caches.match(event.request).then(cached=>cached||fetch(event.request).then(response=>{if(response.ok){const copy=response.clone();caches.open(CACHE).then(c=>c.put(event.request,copy))}return response})))})
