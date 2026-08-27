@@ -1,6 +1,5 @@
-const CACHE='calorie-tracker-v8';
-const ASSETS=['./','./index.html','./app.js','./fixes.js','./manifest.json','./icon.svg'];
-async function patchedIndex(){const r=await fetch('./index.html',{cache:'no-store'});const html=await r.text();return new Response(html.includes('fixes.js')?html:html.replace('</body>','<script src="./fixes.js"></script></body>'),{headers:{'Content-Type':'text/html;charset=UTF-8'}})}
-self.addEventListener('install',e=>{self.skipWaiting();e.waitUntil(caches.open(CACHE).then(async c=>{for(const a of ASSETS){if(a==='./index.html')await c.put(a,await patchedIndex());else{const r=await fetch(a,{cache:'no-store'});if(r.ok)await c.put(a,r)}}}))});
-self.addEventListener('activate',e=>e.waitUntil(self.clients.claim().then(()=>caches.keys()).then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))))));
-self.addEventListener('fetch',e=>{if(e.request.mode==='navigate'){e.respondWith(caches.match('./index.html').then(r=>r||patchedIndex()));return}e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(x=>{const c=x.clone();caches.open(CACHE).then(k=>k.put(e.request,c));return x})))})
+const CACHE='calorie-tracker-v9';
+const ASSETS=['./','./index.html','./app.js','./charts.js','./manifest.json','./icon.svg'];
+self.addEventListener('install',event=>{self.skipWaiting();event.waitUntil(caches.open(CACHE).then(async cache=>{for(const asset of ASSETS){try{const response=await fetch(asset,{cache:'no-store'});if(response.ok)await cache.put(asset,response)}catch(e){}}}))});
+self.addEventListener('activate',event=>event.waitUntil(self.clients.claim().then(()=>caches.keys()).then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))))));
+self.addEventListener('fetch',event=>{if(event.request.method!=='GET')return;if(event.request.mode==='navigate'){event.respondWith(fetch(event.request,{cache:'no-store'}).then(response=>{const copy=response.clone();caches.open(CACHE).then(c=>c.put('./index.html',copy));return response}).catch(()=>caches.match('./index.html')));return}event.respondWith(caches.match(event.request).then(cached=>cached||fetch(event.request).then(response=>{if(response.ok){const copy=response.clone();caches.open(CACHE).then(c=>c.put(event.request,copy))}return response})))})
