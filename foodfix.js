@@ -1,13 +1,78 @@
 (function(){
   function F(v){return Number(v)||0}
   function esc2(v){return String(v??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]))}
+
+  // Migrate older saved foods. Older versions did not store baseQty, so
+  // gram/ml foods are treated as 100 g/ml and piece foods as 1 piece.
+  if(Array.isArray(S.foods)){
+    let changed=false;
+    S.foods=S.foods.map(f=>{
+      if(f.baseQty==null || F(f.baseQty)<=0){
+        changed=true;
+        return {...f,baseQty:(f.unit==='g'||f.unit==='ml')?100:1};
+      }
+      return f;
+    });
+    if(changed)save();
+  }
+
   function savedFood(i){return i<0?{name:'',baseQty:100,unit:'g',cal:0,p:0,c:0,fat:0}:S.foods[i]}
-  window.savedForm=function(i){let f=savedFood(i);openModal(`<div class="row"><div><span class="eyebrow">FOOD LIBRARY</span><div class="title">${i<0?'Save a food':'Edit saved food'}</div></div><button class="btn secondary small" onclick="closeModal()">Close</button></div><div class="divider"></div><div class="field"><label>Food name</label><input id="libName" class="input" value="${esc2(f.name)}"></div><div class="grid2"><div class="field"><label>Base quantity</label><input id="libBase" class="input" type="number" step=".1" value="${F(f.baseQty||1)}"></div><div class="field"><label>Unit</label><select id="libUnit" class="input"><option value="g" ${f.unit==='g'?'selected':''}>grams</option><option value="ml" ${f.unit==='ml'?'selected':''}>ml</option><option value="piece" ${f.unit==='piece'?'selected':''}>piece</option><option value="serving" ${!['g','ml','piece'].includes(f.unit)?'selected':''}>serving</option></select></div></div><div class="grid2"><div class="field"><label>Calories</label><input id="libCal" class="input" type="number" value="${F(f.cal)}"></div><div class="field"><label>Protein g</label><input id="libP" class="input" type="number" step=".1" value="${F(f.p)}"></div><div class="field"><label>Carbs g</label><input id="libC" class="input" type="number" step=".1" value="${F(f.c)}"></div><div class="field"><label>Fat g</label><input id="libFat" class="input" type="number" step=".1" value="${F(f.fat)}"></div></div><button class="btn" style="width:100%" onclick="saveSavedFood(${i})">Save to library</button>${i>=0?`<button class="btn danger" style="width:100%;margin-top:8px" onclick="deleteSaved(${i})">Remove from library</button>`:''}`)};
-  window.saveSavedFood=function(i){let f={name:libName.value.trim()||'Food',baseQty:F(libBase.value)||1,unit:libUnit.value,cal:F(libCal.value),p:F(libP.value),c:F(libC.value),fat:F(libFat.value)};if(i<0)S.foods.push(f);else S.foods[i]=f;save();closeModal();render()};
+
+  window.savedForm=function(i){
+    let f=savedFood(i);
+    openModal(`<div class="row"><div><span class="eyebrow">FOOD LIBRARY</span><div class="title">${i<0?'Save a food':'Edit saved food'}</div></div><button class="btn secondary small" onclick="closeModal()">Close</button></div><div class="divider"></div><div class="field"><label>Food name</label><input id="libName" class="input" value="${esc2(f.name)}"></div><div class="grid2"><div class="field"><label>Base quantity</label><input id="libBase" class="input" type="number" step=".1" value="${F(f.baseQty||1)}"></div><div class="field"><label>Unit</label><select id="libUnit" class="input"><option value="g" ${f.unit==='g'?'selected':''}>grams</option><option value="ml" ${f.unit==='ml'?'selected':''}>ml</option><option value="piece" ${f.unit==='piece'?'selected':''}>piece</option><option value="serving" ${!['g','ml','piece'].includes(f.unit)?'selected':''}>serving</option></select></div></div><div class="grid2"><div class="field"><label>Calories</label><input id="libCal" class="input" type="number" value="${F(f.cal)}"></div><div class="field"><label>Protein g</label><input id="libP" class="input" type="number" step=".1" value="${F(f.p)}"></div><div class="field"><label>Carbs g</label><input id="libC" class="input" type="number" step=".1" value="${F(f.c)}"></div><div class="field"><label>Fat g</label><input id="libFat" class="input" type="number" step=".1" value="${F(f.fat)}"></div></div><button class="btn" style="width:100%" onclick="saveSavedFood(${i})">Save to library</button>${i>=0?`<button class="btn danger" style="width:100%;margin-top:8px" onclick="deleteSaved(${i})">Remove from library</button>`:''}`)
+  };
+
+  window.saveSavedFood=function(i){
+    let f={name:libName.value.trim()||'Food',baseQty:F(libBase.value)||1,unit:libUnit.value,cal:F(libCal.value),p:F(libP.value),c:F(libC.value),fat:F(libFat.value)};
+    if(i<0)S.foods.push(f);else S.foods[i]=f;
+    save();closeModal();render()
+  };
   window.deleteSaved=function(i){S.foods.splice(i,1);save();closeModal();render()};
-  window.foodForm=function(i){let f=i<0?{name:'',qty:100,unit:'g',cal:0,p:0,c:0,fat:0,baseQty:100}:day().foods[i];openModal(`<div class="row"><div><span class="eyebrow">FOOD LOG</span><div class="title">${i<0?'Add food':'Edit food'}</div></div><button class="btn secondary small" onclick="closeModal()">Close</button></div><div class="field" style="position:relative"><label>Food name</label><input id="foodName" class="input" autocomplete="off" value="${esc2(f.name)}" oninput="suggestFood2(this.value)"><div id="suggestions"></div></div><div class="grid2"><div class="field"><label>Quantity</label><input id="foodQty" class="input" type="number" step=".1" value="${F(f.qty||1)}" oninput="recalcFood()"></div><div class="field"><label>Unit</label><input id="foodUnit" class="input" value="${esc2(f.unit||'g')}" readonly></div></div><div class="grid2"><div class="field"><label>Calories</label><input id="foodCal" class="input" type="number" value="${F(f.cal)}" readonly></div><div class="field"><label>Protein g</label><input id="foodP" class="input" type="number" value="${F(f.p)}" readonly></div><div class="field"><label>Carbs g</label><input id="foodC" class="input" type="number" value="${F(f.c)}" readonly></div><div class="field"><label>Fat g</label><input id="foodFat" class="input" type="number" value="${F(f.fat)}" readonly></div></div><div class="muted" id="foodBaseNote">${i<0?'Choose a saved food to automatically calculate nutrition.':`Base: ${F(f.baseQty||1)} ${esc2(f.unit||'g')}`}</div><button class="btn" style="width:100%;margin-top:12px" onclick="saveFoodFixed(${i})">Save food</button>${i>=0?`<button class="btn danger" style="width:100%;margin-top:8px" onclick="removeFood(${i})">Delete</button>`:''}`);if(i>=0){window._selectedSaved={name:f.name,baseQty:F(f.baseQty||1),unit:f.unit||'g',cal:F(f.cal)/(F(f.qty)||1)*(F(f.baseQty||1)),p:F(f.p)/(F(f.qty)||1)*(F(f.baseQty||1)),c:F(f.c)/(F(f.qty)||1)*(F(f.baseQty||1)),fat:F(f.fat)/(F(f.qty)||1)*(F(f.baseQty||1))}};
-  window.suggestFood2=function(q){let box=document.getElementById('suggestions');if(!box)return;let matches=q.trim().length>=2?S.foods.filter(f=>f.name.toLowerCase().includes(q.trim().toLowerCase())).slice(0,6):[];box.innerHTML=matches.map((f,i)=>`<button type="button" class="quick" style="display:block;width:100%;text-align:left;margin-top:4px" onclick="selectSavedFood(${S.foods.indexOf(f)})">${esc2(f.name)} · ${F(f.baseQty||1)} ${esc2(f.unit||'g')} · ${F(f.cal)} kcal</button>`).join('')};
-  window.selectSavedFood=function(i){let f=S.foods[i];window._selectedSaved={...f};foodName.value=f.name;foodUnit.value=f.unit||'g';foodQty.value=f.baseQty||1;document.getElementById('suggestions').innerHTML='';recalcFood()};
-  window.recalcFood=function(){let f=window._selectedSaved;if(!f)return;let base=F(f.baseQty)||1,q=F(foodQty.value),mult=q/base;foodCal.value=(F(f.cal)*mult).toFixed(1);foodP.value=(F(f.p)*mult).toFixed(1);foodC.value=(F(f.c)*mult).toFixed(1);foodFat.value=(F(f.fat)*mult).toFixed(1);document.getElementById('foodBaseNote').textContent=`Base: ${base} ${f.unit||'g'} = ${F(f.cal)} kcal · quantity ${q} ${f.unit||'g'}`};
-  window.saveFoodFixed=function(i){let f={name:foodName.value.trim()||'Food',qty:F(foodQty.value),unit:foodUnit.value||'g',cal:F(foodCal.value),p:F(foodP.value),c:F(foodC.value),fat:F(foodFat.value),baseQty:window._selectedSaved?.baseQty||F(foodQty.value)||1};if(i<0)day().foods.push(f);else day().foods[i]=f;save();closeModal();render()};
+
+  window.foodForm=function(i){
+    let f=i<0?{name:'',qty:100,unit:'g',cal:0,p:0,c:0,fat:0,baseQty:100}:day().foods[i];
+    window._selectedSaved=null;
+    openModal(`<div class="row"><div><span class="eyebrow">FOOD LOG</span><div class="title">${i<0?'Add food':'Edit food'}</div></div><button class="btn secondary small" onclick="closeModal()">Close</button></div><div class="field" style="position:relative"><label>Food name</label><input id="foodName" class="input" autocomplete="off" value="${esc2(f.name)}" oninput="suggestFood2(this.value)"><div id="suggestions"></div></div><div class="grid2"><div class="field"><label>Quantity</label><input id="foodQty" class="input" type="number" step=".1" value="${F(f.qty||1)}" oninput="recalcFood()"></div><div class="field"><label>Unit</label><input id="foodUnit" class="input" value="${esc2(f.unit||'g')}" readonly></div></div><div class="grid2"><div class="field"><label>Calories</label><input id="foodCal" class="input" type="number" value="${F(f.cal)}" readonly></div><div class="field"><label>Protein g</label><input id="foodP" class="input" type="number" value="${F(f.p)}" readonly></div><div class="field"><label>Carbs g</label><input id="foodC" class="input" type="number" value="${F(f.c)}" readonly></div><div class="field"><label>Fat g</label><input id="foodFat" class="input" type="number" value="${F(f.fat)}" readonly></div></div><div class="muted" id="foodBaseNote">${i<0?'Choose a saved food to automatically calculate nutrition.':`Base: ${F(f.baseQty||1)} ${esc2(f.unit||'g')}`}</div><button class="btn" style="width:100%;margin-top:12px" onclick="saveFoodFixed(${i})">Save food</button>${i>=0?`<button class="btn danger" style="width:100%;margin-top:8px" onclick="removeFood(${i})">Delete</button>`:''}`);
+    if(i>=0){
+      let base=F(f.baseQty)||((f.unit==='g'||f.unit==='ml')?100:1);
+      let qty=F(f.qty)||base;
+      window._selectedSaved={name:f.name,baseQty:base,unit:f.unit||'g',cal:F(f.cal)/qty*base,p:F(f.p)/qty*base,c:F(f.c)/qty*base,fat:F(f.fat)/qty*base};
+    }
+  };
+
+  window.suggestFood2=function(q){
+    let box=document.getElementById('suggestions');if(!box)return;
+    let term=q.trim().toLowerCase();
+    let matches=term.length>=2?S.foods.filter(f=>f.name.toLowerCase().includes(term)).slice(0,6):[];
+    box.innerHTML=matches.map(f=>`<button type="button" class="quick" style="display:block;width:100%;text-align:left;margin-top:4px" onclick="selectSavedFood(${S.foods.indexOf(f)})">${esc2(f.name)} · ${F(f.baseQty||((f.unit==='g'||f.unit==='ml')?100:1))} ${esc2(f.unit||'g')} · ${F(f.cal)} kcal</button>`).join('')
+  };
+
+  window.selectSavedFood=function(i){
+    let f=S.foods[i];
+    let base=F(f.baseQty)||((f.unit==='g'||f.unit==='ml')?100:1);
+    window._selectedSaved={...f,baseQty:base};
+    foodName.value=f.name;
+    foodUnit.value=f.unit||'g';
+    foodQty.value=base;
+    document.getElementById('suggestions').innerHTML='';
+    recalcFood()
+  };
+
+  window.recalcFood=function(){
+    let f=window._selectedSaved;if(!f)return;
+    let base=F(f.baseQty)||1,q=F(foodQty.value);if(q<=0)q=0;
+    let mult=q/base;
+    foodCal.value=(F(f.cal)*mult).toFixed(1);
+    foodP.value=(F(f.p)*mult).toFixed(1);
+    foodC.value=(F(f.c)*mult).toFixed(1);
+    foodFat.value=(F(f.fat)*mult).toFixed(1);
+    document.getElementById('foodBaseNote').textContent=`Base: ${base} ${f.unit||'g'} = ${F(f.cal)} kcal · quantity ${q} ${f.unit||'g'}`
+  };
+
+  window.saveFoodFixed=function(i){
+    let f={name:foodName.value.trim()||'Food',qty:F(foodQty.value),unit:foodUnit.value||'g',cal:F(foodCal.value),p:F(foodP.value),c:F(foodC.value),fat:F(foodFat.value),baseQty:window._selectedSaved?.baseQty||F(foodQty.value)||1};
+    if(i<0)day().foods.push(f);else day().foods[i]=f;
+    save();closeModal();render()
+  };
 })();
